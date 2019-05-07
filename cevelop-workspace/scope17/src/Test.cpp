@@ -29,8 +29,14 @@ SOFTWARE.
 #include <fstream>
 #include <cstdio>
 #include <fcntl.h>
+#ifdef _MSC_VER
+#include <io.h>
+#include <tchar.h>	// ANSI/UNICODE macros
+#define POSIX_NAME(name) _##name
+#else
 #include <unistd.h>
-
+#define POSIX_NAME(name) name
+#endif
 #include <string>
 
 #include <sstream>
@@ -63,7 +69,7 @@ void DemoFstream(){
 
 using std::filesystem::path;
 void copy_file_transact(path const & from, path const & to) {
-   path t = to.native() + ".deleteme";
+   path t = to.native() + _T(".deleteme");
    auto guard= scope_fail{ [t]{remove(t);} };
    copy_file(from, t);
    rename(t, to);
@@ -324,7 +330,7 @@ void demonstrate_unique_resource_with_stdio() {
 		getline(input, line);
 		ASSERT(input.eof());
 	}
-	::unlink(filename.c_str());
+	::POSIX_NAME(unlink)(filename.c_str());
 	{
 		auto file = make_unique_resource_checked(::fopen("nonexistentfile.txt", "r"), nullptr, fclose);
 		ASSERT_EQUAL((FILE*)NULL, file.get());
@@ -348,7 +354,7 @@ void demonstrate_unique_resource_with_stdio_Cpp17() {
 		getline(input, line);
 		ASSERT(input.eof());
 	}
-	::unlink(filename.c_str());
+	::POSIX_NAME(unlink)(filename.c_str());
 	{
 		auto file = make_unique_resource_checked(::fopen("nonexistentfile.txt", "r"), nullptr, fclose);
 		ASSERT_EQUAL((FILE*)NULL, file.get());
@@ -358,11 +364,11 @@ void demonstrate_unique_resource_with_stdio_Cpp17() {
 
 void demontrate_unique_resource_with_POSIX_IO() {
 	const std::string filename = "./hello1.txt";
-	auto close=[](auto fd){::close(fd);};
+	auto close=[](auto fd){::POSIX_NAME(close)(fd);};
 	{
-		auto file = unique_resource(::open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0666), close);
+		auto file = unique_resource(::POSIX_NAME(open)(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0666), close);
 
-		::write(file.get(), "Hello World!\n", 12u);
+		::POSIX_NAME(write)(file.get(), "Hello World!\n", 12u);
 		ASSERT(file.get() != -1);
 	}
 	{
@@ -373,9 +379,9 @@ void demontrate_unique_resource_with_POSIX_IO() {
 		getline(input, line);
 		ASSERT(input.eof());
 	}
-	::unlink(filename.c_str());
+	::POSIX_NAME(unlink)(filename.c_str());
 	{
-		auto file = make_unique_resource_checked(::open("nonexistingfile.txt", O_RDONLY), -1, close);
+		auto file = make_unique_resource_checked(::POSIX_NAME(open)("nonexistingfile.txt", O_RDONLY), -1, close);
 		ASSERT_EQUAL(-1, file.get());
 	}
 
@@ -383,13 +389,13 @@ void demontrate_unique_resource_with_POSIX_IO() {
 
 void demontrate_unique_resource_with_POSIX_IO_lvalue() {
 	const std::string filename = "./hello1.txt";
-	auto close=[](auto fd){::close(fd);};
+	auto close=[](auto fd){::POSIX_NAME(close)(fd);};
 	{
-		auto fd = ::open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0666);
+		auto fd = ::POSIX_NAME(open)(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0666);
 
 		auto file = make_unique_resource_checked(fd,-1, close);
 		ASSERT(fd!=-1);
-		::write(file.get(), "Hello World!\n", 12u);
+		::POSIX_NAME(write)(file.get(), "Hello World!\n", 12u);
 		ASSERT(file.get() != -1);
 	}
 	{
@@ -400,9 +406,9 @@ void demontrate_unique_resource_with_POSIX_IO_lvalue() {
 		getline(input, line);
 		ASSERT(input.eof());
 	}
-	::unlink(filename.c_str());
+	::POSIX_NAME(unlink)(filename.c_str());
 	{
-		auto fd=::open("nonexistingfile.txt", O_RDONLY);
+		auto fd=::POSIX_NAME(open)("nonexistingfile.txt", O_RDONLY);
 		auto file = make_unique_resource_checked(fd, -1, close);
 		ASSERT_EQUAL(-1, file.get());
 	}

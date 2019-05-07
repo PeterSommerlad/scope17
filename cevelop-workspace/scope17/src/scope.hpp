@@ -212,6 +212,12 @@ struct _empty_scope_exit
 
 }
 
+template<typename EF, typename EFP>
+struct _noexcept_ctor_from_helper {
+	static constexpr bool value = noexcept(detail::_box<EF>(std::declval<EFP>(), detail::_empty_scope_exit{}));
+	using type = std::bool_constant <value>;
+};
+
 // Requires: EF is Callable
 // Requires: EF is nothrow MoveConstructible OR CopyConstructible
 template<class EF, class Policy /*= on_exit_policy*/>
@@ -232,12 +238,14 @@ class [[nodiscard]] basic_scope_exit :  Policy
     template<typename EFP>
     using _ctor_from = std::is_constructible<detail::_box<EF>, EFP, detail::_empty_scope_exit>;
     template<typename EFP>
-    using _noexcept_ctor_from = std::bool_constant<noexcept(detail::_box<EF>(std::declval<EFP>(), detail::_empty_scope_exit{}))>;
+	using _noexcept_ctor_from = typename _noexcept_ctor_from_helper<EF, EFP>::type;
 public:
     template<typename EFP, typename = std::enable_if_t<_ctor_from<EFP>::value>>
+	[[nodiscard]]
     explicit basic_scope_exit(EFP &&ef) noexcept(_noexcept_ctor_from<EFP>::value)
       : exit_function(std::forward<EFP>( ef), _make_failsafe(_noexcept_ctor_from<EFP>{}, &ef))
     {}
+	[[nodiscard]]
     basic_scope_exit(basic_scope_exit &&that) noexcept(noexcept(detail::_box<EF>(that.exit_function.move(), that)))
       : Policy(that), exit_function(that.exit_function.move(), that)
     {}
@@ -286,7 +294,7 @@ public://should be private
 			noexcept(detail::_box<D>(std::forward<DD>(d), detail::_empty_scope_exit {})))
       : resource(std::forward<RR>(r), scope_exit([&] {if (should_run) d(r);}))
       , deleter(std::forward<DD>(d),  scope_exit([&, this] {if (should_run) d(get());}))
-	  , execute_on_destruction { should_run }
+	  , execute_on_destruction ( should_run )
     {}
     // need help in making the factory a nice friend...
     // the following two ICEs my g++ and gives compile errors about mismatche exception spec on clang7
